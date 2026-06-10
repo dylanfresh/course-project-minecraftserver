@@ -40,3 +40,6 @@ Firstly, run `chmod +x deploy.sh` in the file location to setup the deploy scrip
 
 ## Step 6: Have fun!
 Your Minecraft server will be all set to go at this point. Enjoy!
+
+# Sources
+Mojang: https://www.minecraft.net/en-us/download/server
