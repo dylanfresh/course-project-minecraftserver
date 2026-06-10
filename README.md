@@ -38,3 +38,5 @@ Use the following to generate a key pair to use with Terraform, allowing it to s
 ## Step 5: Run the deploy.sh file to get your server going!
 Firstly, run `chmod +x deploy.sh` in the file location to setup the deploy script. Use `./deploy.sh ` to get the server running. Once this script is complete you can test connection on your minecraft client, or test using `nmap -sV -Pn -p 25565 <PUBLIC_IP>`. (The script will also print an nmap command you can use to test.)
 
+## Step 6: Have fun!
+Your Minecraft server will be all set to go at this point. Enjoy!
