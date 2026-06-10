@@ -1,0 +1,117 @@
+---
+- name: Configure Minecraft Server
+  hosts: minecraft
+  become: yes
+
+  vars:
+    minecraft_dir: /opt/minecraft
+    minecraft_user: minecraft
+    java_pkg: openjdk-21-jre-headless
+
+  tasks:
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Java 21
+      apt:
+        name: "{{ java_pkg }}"
+        state: present
+
+    - name: Ensure Java is installed correctly
+      command: java -version
+      register: java_version
+      changed_when: false
+
+    - debug:
+        var: java_version.stderr_lines
+
+    - name: Create minecraft user
+      user:
+        name: "{{ minecraft_user }}"
+        system: yes
+        shell: /bin/bash
+        create_home: no
+
+    - name: Create minecraft directory
+      file:
+        path: "{{ minecraft_dir }}"
+        state: directory
+        owner: "{{ minecraft_user }}"
+        group: "{{ minecraft_user }}"
+        mode: "0755"
+
+    - name: Get Minecraft version manifest
+      uri:
+        url: https://launchermeta.mojang.com/mc/game/version_manifest.json
+        return_content: yes
+      register: manifest
+
+    - name: Get release version ID
+      set_fact:
+        mc_version: "1.21.1"
+
+    - name: Get version metadata URL
+      set_fact:
+        version_url: >-
+          {{ (manifest.json.versions
+              | selectattr('id', 'equalto', mc_version)
+              | list
+              | first).url }}
+
+    - name: Fetch version details
+      uri:
+        url: "{{ version_url }}"
+        return_content: yes
+      register: version_data
+
+    - name: Set server download URL
+      set_fact:
+        server_url: "{{ version_data.json.downloads.server.url }}"
+
+    - name: Download Minecraft server
+      get_url:
+        url: "{{ server_url }}"
+        dest: "{{ minecraft_dir }}/server.jar"
+        owner: "{{ minecraft_user }}"
+        group: "{{ minecraft_user }}"
+        mode: "0755"
+
+    - name: Accept Minecraft EULA
+      copy:
+        dest: "{{ minecraft_dir }}/eula.txt"
+        content: "eula=true\n"
+        owner: "{{ minecraft_user }}"
+        group: "{{ minecraft_user }}"
+
+    - name: Install systemd service
+      copy:
+        dest: /etc/systemd/system/minecraft.service
+        content: |
+          [Unit]
+          Description=Minecraft Server
+          After=network.target
+
+          [Service]
+          User={{ minecraft_user }}
+          WorkingDirectory={{ minecraft_dir }}
+
+          ExecStart=/usr/bin/java -Xmx1G -Xms1G -jar server.jar nogui
+          ExecStop=/bin/kill -SIGINT $MAINPID
+
+          Restart=always
+          RestartSec=10
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start Minecraft service
+      systemd:
+        name: minecraft
+        enabled: yes
+        state: started
